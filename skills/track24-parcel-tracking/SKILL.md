@@ -1,7 +1,7 @@
 ---
 name: track24-parcel-tracking
 description: "Read-only Track24 parcel status: fetch, decrypt and verify the latest event for an exact tracking code."
-version: 1.1.0
+version: 2.0.0
 author: Mac3g0d
 license: MIT
 platforms: [linux, macos, windows]
@@ -21,13 +21,15 @@ Use for operator-owned parcel status checks on Track24 and diagnosis of its publ
 
 ## Execution
 
-Run `scripts/track24.py` from this skill's directory with the exact tracking identifier. It needs Python 3.10+ and `pycryptodome`; use `uv` so nothing is installed into a system interpreter. `scripts/track24_constants.py` must stay next to the script. Example identifiers in docs are placeholders, not live parcels.
+Run `scripts/track24.py` from this skill's directory with one or more exact tracking identifiers (at most 10 per run). It needs Python 3.10+, `httpx` and `pycryptodome`; use `uv` so nothing is installed into a system interpreter. `scripts/track24_constants.py` must stay next to the script. Example identifiers in docs are placeholders, not live parcels.
 
 ```sh
-uv run --no-project --with "pycryptodome>=3.20,<4" python scripts/track24.py "$TRACK_CODE"
+uv run --no-project --with "httpx>=0.27,<1" --with "pycryptodome>=3.20,<4" python scripts/track24.py "$TRACK_CODE"
 ```
 
-Exit code 0 prints one JSON summary line to stdout. Exit code 1 prints `{"ok": false, "error": "<ErrorType>"}` (or `http_error` with `http_status`) to stderr. Error types: `InvalidTrackCodeError`, `MissingLiteralError`, `EndpointError`, `DecryptionError`, `ResponseTooLargeError`, `ChallengeError`, `ServiceStatusError`, `IdentifierMismatchError`.
+Pass several identifiers in one call instead of calling the script once per parcel: they share one connection pool and run concurrently (at most 3 requests in flight), and repeated identifiers are fetched once.
+
+Output is JSON Lines in argument order. Each verified parcel prints a summary line to stdout. Each failure prints `{"track": "<code>", "ok": false, "error": "<ErrorType>"}` to stderr, plus `http_status` when `error` is `http_error`. Exit code is 0 only when every identifier succeeded. Error types: `InvalidTrackCodeError`, `MissingLiteralError`, `EndpointError`, `DecryptionError`, `ResponseTooLargeError`, `UnexpectedRedirectError`, `ChallengeError`, `ServiceStatusError`, `IdentifierMismatchError`, and httpx transport errors such as `ConnectError` or `ReadTimeout`. A connection that could not be opened is retried once; nothing else is retried.
 
 The script retrieves the public page, reads its `cp` literal, discovers the tracking endpoint from a literal or the observed dictionary-packed assignment WITHOUT executing JavaScript, POSTs form data, and decodes the CryptoJS AES passphrase envelope. AES-CBC uses OpenSSL-style MD5 derivation with the supplied salt. None of the encryption parameters are printed. Never hardcode a user's cookies, browser key, UUID, fingerprint, IP, address or track number into the skill or repository.
 
@@ -41,7 +43,7 @@ If endpoint discovery changes, fail closed. After inspecting a legitimate succes
 - Treat `deliveredStatus=1` as a delivered flag; do not mark the user's task done merely because tracking was fetched or a parcel reached a hub.
 - The CLI prints a minimal status summary, not full delivery addresses or raw page/session data. Do not upload live tracking responses as test fixtures.
 - Runtime transport differences matter: curl and a browser may fail while Python urllib succeeds. Measure rather than claim a permanent IP ban or assert a specific WAF cause. Stop on 403/429/challenges; no proxy rotation, fingerprint spoofing or challenge bypass. Do not use archived pages as current parcel status.
-- Live execution was verified for a Qwintry shipment; this does NOT establish Ural/GUOO/Ozon coverage. Test one exact identifier per carrier before claiming support. No live user identifier is stored in this skill.
+- Live execution was verified for Qwintry, Ozon, Ural express and GUOO shipments; other carriers are unverified. Test one exact identifier per carrier before claiming support. No live user identifier is stored in this skill.
 
 ## Monitoring is a separate opt-in
 
@@ -49,4 +51,4 @@ This skill does not schedule jobs, send messages, close tasks, install dependenc
 
 ## Known limits
 
-The website can change its endpoint, packing, cryptography or response schema without notice. The current decoder only supports the observed JSON CryptoJS format and fails closed otherwise. No arbitrary browser-session replay, CAPTCHA handling, retries, push delivery or tracking-number auto-normalization is provided. Tests use explicitly synthetic crypto data and no network. Live smoke tests are opt-in and require an operator-owned parcel.
+The website can change its endpoint, packing, cryptography or response schema without notice. The current decoder only supports the observed JSON CryptoJS format and fails closed otherwise. No arbitrary browser-session replay, CAPTCHA handling, retries beyond one reconnect, redirects, push delivery or tracking-number auto-normalization is provided. Tests use explicitly synthetic crypto data and no network. Live smoke tests are opt-in and require an operator-owned parcel.

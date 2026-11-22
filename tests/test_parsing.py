@@ -3,7 +3,7 @@
 import pytest
 
 import track24
-from helpers.constants import (
+from constants import (
     PACKED_ENDPOINT_PATH,
     PACKED_SCRIPT,
     PACKED_SCRIPT_WITH_INVALID_RADIX,

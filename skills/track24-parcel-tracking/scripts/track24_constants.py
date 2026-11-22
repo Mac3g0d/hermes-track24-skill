@@ -51,6 +51,11 @@ TEXT_ENCODING: Final[str] = "utf-8"
 MAX_RESPONSE_BYTES: Final[int] = 8_000_000
 DEFAULT_TIMEOUT_SECONDS: Final[float] = 25.0
 MAX_TIMEOUT_SECONDS: Final[float] = 120.0
+MAX_TRACK_CODES_PER_RUN: Final[int] = 10
+MAX_CONCURRENT_REQUESTS: Final[int] = 3
+CONNECT_ATTEMPTS: Final[int] = 2
+HTTP_METHOD_GET: Final[str] = "GET"
+HTTP_METHOD_POST: Final[str] = "POST"
 
 ACCEPT_HEADER_VALUE: Final[str] = "application/json, text/javascript, */*; q=0.01"
 FORM_CONTENT_TYPE: Final[str] = "application/x-www-form-urlencoded; charset=UTF-8"
@@ -93,8 +98,10 @@ ERROR_CHALLENGE: Final[str] = "Site challenge requires operator action; not bypa
 ERROR_NON_OK_STATUS: Final[str] = "Tracking service returned a non-ok status"
 ERROR_IDENTIFIER_MISMATCH: Final[str] = "Response does not match the exact requested identifier"
 ERROR_TIMEOUT_RANGE: Final[str] = "--timeout must be between 0 and 120 seconds"
+ERROR_TOO_MANY_CODES: Final[str] = "At most 10 tracking identifiers per run"
+ERROR_UNEXPECTED_REDIRECT: Final[str] = "Track24 answered with a redirect; not followed"
 
 CLI_ERROR_HTTP: Final[str] = "http_error"
 CLI_ENDPOINT_HELP: Final[str] = "Optional observed Track24 /ajax/ URL"
 CLI_TIMEOUT_HELP: Final[str] = "Request timeout in seconds"
-CLI_CODE_HELP: Final[str] = "Exact tracking identifier"
+CLI_CODES_HELP: Final[str] = "One or more exact tracking identifiers (at most 10)"

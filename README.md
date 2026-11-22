@@ -45,19 +45,24 @@ New taps are installed with `community` trust and go through the Hermes security
 ```text
 skills/track24-parcel-tracking/
   SKILL.md                      skill manifest and agent instructions
-  scripts/track24.py            tracker and CLI
+  scripts/track24.py            async httpx tracker and CLI
   scripts/track24_constants.py  every constant, annotated with typing.Final
 tests/                          pytest suite, not shipped with the skill
-  helpers/                      synthetic data, CryptoJS envelope builder, loopback fake Track24
-pyproject.toml, uv.lock         uv project for development
+  conftest.py                   only registers the fixture plugins below
+  fixtures/                     pytest fixtures loaded via pytest_plugins
+  factories/                    polyfactory factories for synthetic Track24 payloads
+  constants.py                  test constants, annotated with typing.Final
+docs/COMPARISON.md              v1 vs v2 cost, tokens and runtime
+pyproject.toml, uv.lock         uv project, pytest and tox configuration
 ```
 
 ## Features
 
-- Python `urllib` page retrieval and POST; no copied browser cookies or user session parameters.
+- Async `httpx` client: several identifiers per run share one connection pool, at most 3 requests in flight.
+- No copied browser cookies or session parameters; redirects are refused; response size is capped while streaming.
 - Endpoint discovery from the observed public page format without executing JavaScript.
 - CryptoJS JSON envelope decoding and exact tracking-identifier validation.
-- Minimal JSON status output; no delivery addresses or raw session variables.
+- JSON Lines output, one line per identifier; no delivery addresses or raw session variables.
 - Typed errors (`ChallengeError`, `IdentifierMismatchError`, ...) reported by class name only.
 
 ## Run
@@ -65,10 +70,11 @@ pyproject.toml, uv.lock         uv project for development
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.10+.
 
 ```sh
-uv run --no-project --with "pycryptodome>=3.20,<4" python skills/track24-parcel-tracking/scripts/track24.py "$TRACK_CODE"
+uv run --no-project --with "httpx>=0.27,<1" --with "pycryptodome>=3.20,<4" \
+  python skills/track24-parcel-tracking/scripts/track24.py "$TRACK_CODE" "$OTHER_TRACK_CODE"
 ```
 
-Set `TRACK_CODE` to your own parcel identifier. No live user identifiers, credentials or captured shipment responses are included in this repository.
+Each verified parcel prints a JSON summary line to stdout; each failure prints `{"track": ..., "ok": false, "error": ...}` to stderr. The exit code is 0 only when every identifier succeeded. No live user identifiers, credentials or captured shipment responses are included in this repository.
 
 If the site's endpoint packing changes, discovery fails closed. An optional `--endpoint` accepts an operator-observed HTTPS /ajax/ URL on track24.ru only. See [SKILL.md](skills/track24-parcel-tracking/SKILL.md) for handling cached statuses, challenges, monitoring approval and verification.
 
@@ -83,18 +89,24 @@ uv run pytest
 ```
 
 ```sh
-uv run pytest -m integration
+uv run tox -p auto
 ```
 
-Tests follow Arrange / Act / Assert and use only synthetic data with no external network access:
+`tox` runs the suite on Python 3.10, 3.11, 3.12, 3.13 and 3.14 through `tox-uv`; `uv run tox -e integration` runs only the integration tests.
+
+Tests follow Arrange / Act / Assert. Test modules contain only imports and test functions; fixtures live in `tests/fixtures/` and are loaded as plugins from `conftest.py`. Network traffic is mocked with `pytest_httpx`, other collaborators with `pytest-mock`, and payloads are generated with `polyfactory`:
 
 - unit tests for literal parsing, packer decoding, endpoint allowlisting, CryptoJS decryption, identifier validation and the summary shape;
-- integration tests that run the full flow over a real loopback HTTP server impersonating Track24: page GET, endpoint discovery, form POST, decryption, verification, HTTP 403/429, challenges, size limits and the CLI output contract, including the script run as a subprocess from the installed layout;
-- repository checks for the hub tap layout, `SKILL.md` frontmatter, `typing.Final` constants and the no-line-comments rule.
+- integration tests for the full flow through httpx: page GET, endpoint discovery, form POST, decryption, verification, redirects, HTTP 403/429, challenges, size limits, reconnects, concurrency limits and the CLI output contract, including the script run as a subprocess from the installed layout;
+- repository checks for the hub tap layout, `SKILL.md` frontmatter, `typing.Final` constants, no line comments, no `from __future__ import annotations`, and test modules holding only tests.
+
+## Releases
+
+Pushing a `v*` tag that matches the `SKILL.md` version runs tox on every Python version, builds `track24-parcel-tracking-<tag>.zip` and `.tar.gz` from `skills/track24-parcel-tracking/` with SHA-256 sums, and publishes them as a GitHub release.
 
 ## Verification scope
 
-The implementation was exercised against one operator-owned Qwintry parcel and returned a matching decrypted event. Ural, GUOO and Ozon coverage is not claimed until separately verified. No exact reproduction of an old event is promised for a future live request.
+Version 2.0.0 was exercised against live Qwintry, Ozon, Ural express and GUOO parcels, each returning a matching decrypted event; see [docs/COMPARISON.md](docs/COMPARISON.md). Other carriers are not claimed until separately verified. No exact reproduction of an old event is promised for a future live request.
 
 ## Boundaries
 

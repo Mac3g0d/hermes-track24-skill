@@ -1,0 +1,33 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install tox --with tox-uv
+      - run: tox -p auto
+      - name: Check the tag matches the skill version
+        run: |
+          version="$(sed -n 's/^version: //p' skills/track24-parcel-tracking/SKILL.md)"
+          test "v${version}" = "${GITHUB_REF_NAME}"
+      - name: Build the skill archive
+        run: |
+          mkdir -p dist
+          git archive --format=zip --prefix=track24-parcel-tracking/ \
+            -o "dist/track24-parcel-tracking-${GITHUB_REF_NAME}.zip" HEAD:skills/track24-parcel-tracking
+          git archive --format=tar.gz --prefix=track24-parcel-tracking/ \
+            -o "dist/track24-parcel-tracking-${GITHUB_REF_NAME}.tar.gz" HEAD:skills/track24-parcel-tracking
+          (cd dist && sha256sum * > SHA256SUMS)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

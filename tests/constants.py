@@ -1,9 +1,13 @@
 """Synthetic test data; none of these values come from a real parcel or session."""
 
+import re
 from pathlib import Path
 from typing import Final
 
-REPOSITORY_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
+REPOSITORY_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
+TESTS_DIRECTORY: Final[Path] = REPOSITORY_ROOT / "tests"
+INTEGRATION_MODULE_PREFIX: Final[str] = "test_integration_"
+PYPROJECT_VERSION_PATTERN: Final[str] = r'^version = "([^"]+)"'
 SKILLS_DIRECTORY: Final[Path] = REPOSITORY_ROOT / "skills"
 SKILL_NAME: Final[str] = "track24-parcel-tracking"
 SKILL_DIRECTORY: Final[Path] = SKILLS_DIRECTORY / SKILL_NAME
@@ -30,16 +34,19 @@ AES_BLOCK_BYTES: Final[int] = 16
 ENDPOINT_PATH: Final[str] = "/ajax/synthetic.ajax.php"
 PACKED_ENDPOINT_PATH: Final[str] = "/ajax/t.ajax.php"
 OVERRIDE_ENDPOINT_PATH: Final[str] = "/ajax/override.ajax.php"
-TRACK24_BASE_URL: Final[str] = "https://track24.ru"
-LOOPBACK_HOST: Final[str] = "127.0.0.1"
+TRACK24_HOST: Final[str] = "track24.ru"
+TRACK24_BASE_URL: Final[str] = f"https://{TRACK24_HOST}"
+PAGE_URL_PATTERN: Final[re.Pattern[str]] = re.compile(r"https://track24\.ru/\?code=.+")
+ENDPOINT_URL: Final[str] = f"{TRACK24_BASE_URL}/ajax/synthetic.ajax.php"
+CONCURRENCY_PROBE_DELAY_SECONDS: Final[float] = 0.05
+HTTP_FOUND: Final[int] = 302
 
-EVENT_ID: Final[str] = "synthetic-event-1"
-EVENT_TIME: Final[str] = "01.01.2000 12:00:00"
-EVENT_OPERATION: Final[str] = "Synthetic arrival"
-EVENT_CARRIER: Final[str] = "Synthetic Post"
-SOURCE_UPDATED_AT: Final[str] = "01.01.2000 12:30:00"
-SOURCES: Final[str] = "cache"
-SECRET_ADDRESS: Final[str] = "Synthetic Street 1, Nowhere"
+SOURCES: Final[tuple[str, ...]] = ("cache",)
+TRACK_CODE_PREFIX: Final[str] = "TEST"
+TRACK_CODE_DIGITS: Final[int] = 9
+EVENT_ID_DIGITS: Final[int] = 9
+EVENT_DATETIME_FORMAT: Final[str] = "%d.%m.%Y %H:%M:%S"
+BATCH_SIZE: Final[int] = 5
 
 PAGE_WITH_LITERAL_TEMPLATE: Final[str] = (
     '<html><script>var cp="{password}";var trackingUrl="{endpoint}";</script></html>'
@@ -64,13 +71,9 @@ PAGE_WITH_PACKED_TEMPLATE: Final[str] = '<html><script>var cp="{password}";{pack
 
 HTTP_OK: Final[int] = 200
 HTTP_FORBIDDEN: Final[int] = 403
-HTTP_NOT_FOUND: Final[int] = 404
-LOOPBACK_SCHEME: Final[str] = "http"
 HTTP_TOO_MANY_REQUESTS: Final[int] = 429
-JSON_CONTENT_TYPE: Final[str] = "application/json"
-HTML_CONTENT_TYPE: Final[str] = "text/html; charset=utf-8"
 OVERSIZED_PADDING_BYTES: Final[int] = 8_000_001
 CLI_TIMEOUT_ARGUMENT: Final[str] = "5"
+CUSTOM_TIMEOUT_SECONDS: Final[float] = 5.0
 OUT_OF_RANGE_TIMEOUT: Final[str] = "121"
 SUBPROCESS_TIMEOUT_SECONDS: Final[float] = 30.0
-SERVER_POLL_INTERVAL_SECONDS: Final[float] = 0.01

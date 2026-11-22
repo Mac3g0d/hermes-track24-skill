@@ -1,20 +1,19 @@
 """Read public Track24 tracking data without replaying another session's credentials."""
 
-from __future__ import annotations
-
 import argparse
+import asyncio
 import base64
 import binascii
 import hashlib
 import json
 import re
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
@@ -25,10 +24,11 @@ from track24_constants import (
     ACCEPT_HEADER_VALUE,
     AJAX_PATH_PREFIX,
     AJAX_PATH_SUFFIX,
-    CLI_CODE_HELP,
+    CLI_CODES_HELP,
     CLI_ENDPOINT_HELP,
     CLI_ERROR_HTTP,
     CLI_TIMEOUT_HELP,
+    CONNECT_ATTEMPTS,
     CRYPTOJS_CIPHERTEXT_KEY,
     CRYPTOJS_IV_KEY,
     CRYPTOJS_SALT_BYTES,
@@ -48,18 +48,24 @@ from track24_constants import (
     ERROR_NON_OK_STATUS,
     ERROR_RESPONSE_TOO_LARGE,
     ERROR_TIMEOUT_RANGE,
+    ERROR_TOO_MANY_CODES,
+    ERROR_UNEXPECTED_REDIRECT,
     EXIT_FAILURE,
     EXIT_SUCCESS,
     FORM_CONTENT_TYPE,
     HEX_RADIX,
+    HTTP_METHOD_GET,
+    HTTP_METHOD_POST,
     JS_DOUBLE_QUOTED_STRING_PATTERN,
     JS_HEX_ESCAPE_PATTERN,
     JS_LITERAL_ASSIGNMENT_TEMPLATE,
     JS_SIMPLE_ESCAPES,
     JS_UNICODE_ESCAPE_PATTERN,
     KEY_MATERIAL_BYTES,
+    MAX_CONCURRENT_REQUESTS,
     MAX_RESPONSE_BYTES,
     MAX_TIMEOUT_SECONDS,
+    MAX_TRACK_CODES_PER_RUN,
     PACKER_DIGITS,
     PACKER_DOUBLE_BACKSLASH,
     PACKER_MAX_PAYLOAD_CHARS,
@@ -115,6 +121,25 @@ class ServiceStatusError(Track24Error):
 
 class IdentifierMismatchError(Track24Error):
     """The response describes a different parcel than the one requested."""
+
+
+class UnexpectedRedirectError(Track24Error):
+    """Track24 answered with a redirect, which is never followed."""
+
+
+@dataclass(frozen=True)
+class TrackOutcome:
+    """The result of tracking one identifier: either ``result`` or an error description."""
+
+    code: str
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    http_status: int | None = None
+
+    @property
+    def ok(self) -> bool:
+        """``True`` when the identifier was fetched and verified."""
+        return self.result is not None
 
 
 def js_string(value: str) -> str:
@@ -237,23 +262,39 @@ def decrypt(envelope: dict[str, Any], password: str) -> dict[str, Any]:
     return decoded
 
 
-def fetch(
-    url: str,
-    timeout: float,
-    data: bytes | None = None,
-    opener: urllib.request.OpenerDirector | None = None,
-) -> bytes:
-    """Perform one GET or form POST and enforce the response size limit."""
+async def fetch_once(client: httpx.AsyncClient, url: str, data: bytes | None) -> bytes:
+    """Perform one GET or form POST, refuse redirects and enforce the response size limit."""
     headers = {"Accept": ACCEPT_HEADER_VALUE}
+    method = HTTP_METHOD_GET
     if data is not None:
         headers["Content-Type"] = FORM_CONTENT_TYPE
-    request = urllib.request.Request(url, data=data, headers=headers)
-    active_opener = opener or urllib.request.build_opener()
-    with active_opener.open(request, timeout=timeout) as response:
-        body: bytes = response.read(MAX_RESPONSE_BYTES + 1)
-    if len(body) > MAX_RESPONSE_BYTES:
-        raise ResponseTooLargeError(ERROR_RESPONSE_TOO_LARGE)
-    return body
+        method = HTTP_METHOD_POST
+    async with client.stream(method, url, headers=headers, content=data) as response:
+        if response.is_redirect:
+            raise UnexpectedRedirectError(ERROR_UNEXPECTED_REDIRECT)
+        response.raise_for_status()
+        body = bytearray()
+        async for chunk in response.aiter_bytes():
+            body.extend(chunk)
+            if len(body) > MAX_RESPONSE_BYTES:
+                raise ResponseTooLargeError(ERROR_RESPONSE_TOO_LARGE)
+    return bytes(body)
+
+
+async def fetch(client: httpx.AsyncClient, url: str, data: bytes | None = None) -> bytes:
+    """Fetch ``url``, retrying only when no connection could be opened.
+
+    A connection failure means no request reached Track24, so repeating it is safe.
+    HTTP errors, challenges and timeouts after connecting are never retried.
+    """
+    attempts_left = CONNECT_ATTEMPTS
+    while True:
+        try:
+            return await fetch_once(client, url, data)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            attempts_left -= 1
+            if attempts_left <= 0:
+                raise
 
 
 def validate_track_code(code: str) -> str:
@@ -281,22 +322,65 @@ def verify_result(result: dict[str, Any], code: str) -> dict[str, Any]:
     return result
 
 
-def track(
+async def track(
+    client: httpx.AsyncClient,
     code: str,
     endpoint: str | None = None,
-    timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    opener: urllib.request.OpenerDirector | None = None,
 ) -> dict[str, Any]:
     """Fetch, decrypt and verify the Track24 result for the exact identifier ``code``."""
     validate_track_code(code)
     query = urllib.parse.urlencode({TRACK24_PAGE_CODE_PARAMETER: code})
-    page = fetch(f"{TRACK24_ORIGIN}/?{query}", timeout, opener=opener).decode(TEXT_ENCODING)
+    page = (await fetch(client, f"{TRACK24_ORIGIN}/?{query}")).decode(TEXT_ENCODING)
     password = literal(page, PASSWORD_LITERAL_NAME)
     target = validate_endpoint(endpoint) if endpoint else discover_endpoint(page)
-    envelope = json.loads(fetch(target, timeout, build_form(code), opener=opener))
+    envelope = json.loads(await fetch(client, target, build_form(code)))
     if not isinstance(envelope, dict):
         raise DecryptionError(ERROR_ENVELOPE_MALFORMED)
     return verify_result(decrypt(envelope, password), code)
+
+
+async def track_outcome(
+    client: httpx.AsyncClient,
+    code: str,
+    endpoint: str | None,
+    limiter: asyncio.Semaphore,
+) -> TrackOutcome:
+    """Track one identifier and convert every failure into a typed, content-free outcome."""
+    async with limiter:
+        try:
+            result = await track(client, code, endpoint)
+        except httpx.HTTPStatusError as exc:
+            return TrackOutcome(code, error=CLI_ERROR_HTTP, http_status=exc.response.status_code)
+        except Exception as exc:
+            return TrackOutcome(code, error=type(exc).__name__)
+    return TrackOutcome(code, result=result)
+
+
+def unique_codes(codes: Sequence[str]) -> list[str]:
+    """Drop repeated identifiers while keeping the caller's order."""
+    return list(dict.fromkeys(codes))
+
+
+def create_client(timeout: float) -> httpx.AsyncClient:
+    """Build the shared HTTP client; redirects are refused rather than followed."""
+    return httpx.AsyncClient(timeout=timeout, follow_redirects=False)
+
+
+async def track_many(
+    codes: Sequence[str],
+    endpoint: str | None = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    client: httpx.AsyncClient | None = None,
+) -> list[TrackOutcome]:
+    """Track several identifiers concurrently over one connection pool, in input order."""
+    limiter = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    active_client = client or create_client(timeout)
+    try:
+        tasks = [track_outcome(active_client, code, endpoint, limiter) for code in unique_codes(codes)]
+        return list(await asyncio.gather(*tasks))
+    finally:
+        if client is None:
+            await active_client.aclose()
 
 
 def summary(result: dict[str, Any]) -> dict[str, Any]:
@@ -320,7 +404,7 @@ def summary(result: dict[str, Any]) -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("code", help=CLI_CODE_HELP)
+    parser.add_argument("codes", nargs="+", metavar="code", help=CLI_CODES_HELP)
     parser.add_argument("--endpoint", help=CLI_ENDPOINT_HELP)
     parser.add_argument(
         "--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS, help=CLI_TIMEOUT_HELP
@@ -328,26 +412,37 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(
+def render_outcome(outcome: TrackOutcome) -> str:
+    """Serialize a failed outcome without raw responses, keys or addresses."""
+    error: dict[str, Any] = {"track": outcome.code, "ok": False, "error": outcome.error}
+    if outcome.http_status is not None:
+        error["http_status"] = outcome.http_status
+    return json.dumps(error, ensure_ascii=False)
+
+
+async def run(
     argv: Sequence[str] | None = None,
-    opener: urllib.request.OpenerDirector | None = None,
+    client: httpx.AsyncClient | None = None,
 ) -> int:
-    """Run the CLI; diagnostics never include raw responses, keys or addresses."""
+    """Parse arguments, track every identifier and print one JSON line per identifier."""
     parser = build_parser()
     args = parser.parse_args(argv)
     if not 0 < args.timeout <= MAX_TIMEOUT_SECONDS:
         parser.error(ERROR_TIMEOUT_RANGE)
-    try:
-        result = track(args.code, args.endpoint, args.timeout, opener=opener)
-    except urllib.error.HTTPError as exc:
-        error = {"ok": False, "error": CLI_ERROR_HTTP, "http_status": exc.code}
-        print(json.dumps(error), file=sys.stderr)
-        return EXIT_FAILURE
-    except Exception as exc:
-        print(json.dumps({"ok": False, "error": type(exc).__name__}), file=sys.stderr)
-        return EXIT_FAILURE
-    print(json.dumps(summary(result), ensure_ascii=False))
-    return EXIT_SUCCESS
+    if len(unique_codes(args.codes)) > MAX_TRACK_CODES_PER_RUN:
+        parser.error(ERROR_TOO_MANY_CODES)
+    outcomes = await track_many(args.codes, args.endpoint, args.timeout, client)
+    for outcome in outcomes:
+        if outcome.result is not None:
+            print(json.dumps(summary(outcome.result), ensure_ascii=False))
+        else:
+            print(render_outcome(outcome), file=sys.stderr)
+    return EXIT_SUCCESS if all(outcome.ok for outcome in outcomes) else EXIT_FAILURE
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Synchronous CLI entry point."""
+    return asyncio.run(run(argv))
 
 
 if __name__ == "__main__":
