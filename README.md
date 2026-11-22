@@ -45,7 +45,7 @@ New taps are installed with `community` trust and go through the Hermes security
 ```text
 skills/track24-parcel-tracking/
   SKILL.md                      skill manifest and agent instructions
-  scripts/track24.py            async httpx tracker and CLI
+  scripts/track24.py            async httpx tracker and CLI, with PEP 723 dependencies
   scripts/track24_constants.py  every constant, annotated with typing.Final
 tests/                          pytest suite, not shipped with the skill
   conftest.py                   only registers the fixture plugins below
@@ -67,11 +67,10 @@ pyproject.toml, uv.lock         uv project, pytest and tox configuration
 
 ## Run
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.10+.
+Requires [uv](https://docs.astral.sh/uv/). The script declares its dependencies and Python version in a PEP 723 inline metadata block at the top of `track24.py`, so uv installs them on the first run:
 
 ```sh
-uv run --no-project --with "httpx>=0.27,<1" --with "pycryptodome>=3.20,<4" \
-  python skills/track24-parcel-tracking/scripts/track24.py "$TRACK_CODE" "$OTHER_TRACK_CODE"
+uv run skills/track24-parcel-tracking/scripts/track24.py "$TRACK_CODE" "$OTHER_TRACK_CODE"
 ```
 
 Each verified parcel prints a JSON summary line to stdout; each failure prints `{"track": ..., "ok": false, "error": ...}` to stderr. The exit code is 0 only when every identifier succeeded. No live user identifiers, credentials or captured shipment responses are included in this repository.
@@ -98,7 +97,7 @@ Tests follow Arrange / Act / Assert. Test modules contain only imports and test 
 
 - unit tests for literal parsing, packer decoding, endpoint allowlisting, CryptoJS decryption, identifier validation and the summary shape;
 - integration tests for the full flow through httpx: page GET, endpoint discovery, form POST, decryption, verification, redirects, HTTP 403/429, challenges, size limits, reconnects, concurrency limits and the CLI output contract, including the script run as a subprocess from the installed layout;
-- repository checks for the hub tap layout, `SKILL.md` frontmatter, `typing.Final` constants, no line comments, no `from __future__ import annotations`, and test modules holding only tests.
+- repository checks for the hub tap layout, `SKILL.md` frontmatter, PEP 723 metadata matching `pyproject.toml`, `typing.Final` constants, no line comments outside the PEP 723 block, no `from __future__ import annotations`, and test modules holding only tests.
 
 ## Releases
 

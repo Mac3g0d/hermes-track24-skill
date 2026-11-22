@@ -21,10 +21,10 @@ Use for operator-owned parcel status checks on Track24 and diagnosis of its publ
 
 ## Execution
 
-Run `scripts/track24.py` from this skill's directory with one or more exact tracking identifiers (at most 10 per run). It needs Python 3.10+, `httpx` and `pycryptodome`; use `uv` so nothing is installed into a system interpreter. `scripts/track24_constants.py` must stay next to the script. Example identifiers in docs are placeholders, not live parcels.
+Run `scripts/track24.py` from this skill's directory with one or more exact tracking identifiers (at most 10 per run). The script starts with a PEP 723 inline metadata block that declares Python 3.10+, `httpx` and `pycryptodome`, so `uv run` builds an isolated environment with exactly those dependencies; nothing is installed into a system interpreter and no project file is needed. `scripts/track24_constants.py` must stay next to the script. Example identifiers in docs are placeholders, not live parcels.
 
 ```sh
-uv run --no-project --with "httpx>=0.27,<1" --with "pycryptodome>=3.20,<4" python scripts/track24.py "$TRACK_CODE"
+uv run scripts/track24.py "$TRACK_CODE"
 ```
 
 Pass several identifiers in one call instead of calling the script once per parcel: they share one connection pool and run concurrently (at most 3 requests in flight), and repeated identifiers are fetched once.

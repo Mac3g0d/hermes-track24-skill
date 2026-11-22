@@ -78,15 +78,15 @@ def test_skill_has_no_inline_shell_dsl(skill_text: str) -> None:
     assert matches == []
 
 
-def test_python_sources_have_no_line_comments(python_sources: list[Path]) -> None:
-    """Explanations live in docstrings; ``#`` comments are not used anywhere."""
+def test_python_sources_have_no_line_comments(python_sources: list[Path], metadata_lines: Any) -> None:
+    """Explanations live in docstrings; the only ``#`` lines allowed are PEP 723 metadata blocks."""
     sources = {path: path.read_text(encoding="utf-8") for path in python_sources}
 
     offenders = [
         f"{path.relative_to(REPOSITORY_ROOT)}:{token.start[0]}"
         for path, source in sources.items()
         for token in tokenize.generate_tokens(io.StringIO(source).readline)
-        if token.type == tokenize.COMMENT
+        if token.type == tokenize.COMMENT and token.start[0] not in metadata_lines(source)
     ]
 
     assert offenders == []
@@ -157,3 +157,30 @@ def test_conftest_only_registers_plugins() -> None:
     assert len(statements) == 1
     assert isinstance(statements[0], ast.Assign)
     assert ast.unparse(statements[0].targets[0]) == "pytest_plugins"
+
+
+def test_script_declares_inline_metadata_first() -> None:
+    """The PEP 723 block opens the tracker, so ``uv run scripts/track24.py`` installs its dependencies."""
+    source = TRACKER_SCRIPT.read_text(encoding="utf-8")
+
+    first_line = source.splitlines()[0]
+
+    assert first_line == "# /// script"
+
+
+def test_script_metadata_matches_project(script_metadata: dict[str, Any], pyproject: dict[str, Any]) -> None:
+    """Inline dependencies and Python bound are the same as the project's runtime requirements."""
+    project = pyproject["project"]
+
+    declared = (sorted(script_metadata["dependencies"]), script_metadata["requires-python"])
+
+    assert declared == (sorted(project["dependencies"]), project["requires-python"])
+
+
+def test_skill_runs_script_through_uv(skill_text: str) -> None:
+    """``SKILL.md`` documents the plain ``uv run`` entry point that relies on the inline metadata."""
+    text = skill_text
+
+    matches = re.findall(r"uv run scripts/track24\.py", text)
+
+    assert matches

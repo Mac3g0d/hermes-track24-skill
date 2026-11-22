@@ -1,3 +1,10 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "httpx>=0.27,<1",
+#     "pycryptodome>=3.20,<4",
+# ]
+# ///
 """Read public Track24 tracking data without replaying another session's credentials."""
 
 import argparse

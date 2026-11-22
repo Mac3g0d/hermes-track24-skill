@@ -154,6 +154,7 @@ dev = [
     { name = "pytest-httpx" },
     { name = "pytest-mock" },
     { name = "pyyaml" },
+    { name = "tomli" },
     { name = "tox", version = "4.65.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "tox", version = "4.67.15", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "tox-uv", version = "1.36.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -174,6 +175,7 @@ dev = [
     { name = "pytest-httpx", specifier = ">=0.36.2" },
     { name = "pytest-mock", specifier = ">=3.17.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "tomli", specifier = ">=2.0" },
     { name = "tox", specifier = ">=4.21" },
     { name = "tox-uv", specifier = ">=1.11" },
 ]

@@ -29,7 +29,7 @@ Token counts are estimates: about 3.5 characters per token for ASCII and code, a
 | `SKILL.md` loaded on activation | ~1,221 | ~1,546 |
 | `description` in hub search results | ~17 | ~30 |
 | Tool calls to check 5 parcels | 5 | 1 |
-| Command text the model writes | 5 × ~11 | 1 × ~49 |
+| Command text the model writes | 5 × ~11 | 1 × ~30 (`uv run scripts/track24.py` + 5 codes) |
 | Tool output read back | ~450 | ~528 |
 | Script source, if the agent reads it | ~1,958 | ~4,613 + ~1,246 constants |
 

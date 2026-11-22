@@ -8,6 +8,11 @@ REPOSITORY_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 TESTS_DIRECTORY: Final[Path] = REPOSITORY_ROOT / "tests"
 INTEGRATION_MODULE_PREFIX: Final[str] = "test_integration_"
 PYPROJECT_VERSION_PATTERN: Final[str] = r'^version = "([^"]+)"'
+PEP723_BLOCK_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$"
+)
+PEP723_BLOCK_TYPE: Final[str] = "script"
+PEP723_LINE_PREFIX: Final[str] = "# "
 SKILLS_DIRECTORY: Final[Path] = REPOSITORY_ROOT / "skills"
 SKILL_NAME: Final[str] = "track24-parcel-tracking"
 SKILL_DIRECTORY: Final[Path] = SKILLS_DIRECTORY / SKILL_NAME
