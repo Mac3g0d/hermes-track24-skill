@@ -17,7 +17,7 @@ TRACK24_PAGE_CODE_PARAMETER: Final[str] = "code"
 AJAX_PATH_PREFIX: Final[str] = "/ajax/"
 AJAX_PATH_SUFFIX: Final[str] = ".ajax.php"
 
-PASSWORD_LITERAL_NAME: Final[str] = "cp"
+CIPHER_KEY_LITERAL_NAME: Final[str] = "cp"
 ENDPOINT_LITERAL_NAME: Final[str] = "trackingUrl"
 
 TRACK_CODE_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9.()/\-]{4,31}")
@@ -35,9 +35,7 @@ JS_DOUBLE_QUOTED_STRING_PATTERN: Final[re.Pattern[str]] = re.compile(r'"((?:\\.|
 JS_LITERAL_ASSIGNMENT_TEMPLATE: Final[str] = r"\b{name}\s*=\s*([\x27\x22])((?:\\.|(?!\1).)*)\1"
 HEX_RADIX: Final[int] = 16
 
-PACKER_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"\}\('((?:\\.|[^'\\])*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)"
-)
+PACKER_PATTERN: Final[re.Pattern[str]] = re.compile(r"\}\('((?:\\.|[^'\\])*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)")
 PACKER_WORD_SEPARATOR: Final[str] = "|"
 PACKER_DIGITS: Final[str] = "0123456789abcdefghijklmnopqrstuvwxyz"
 PACKER_MIN_RADIX: Final[int] = 2
@@ -85,9 +83,7 @@ EXIT_SUCCESS: Final[int] = 0
 EXIT_FAILURE: Final[int] = 1
 
 ERROR_MISSING_LITERAL: Final[str] = "Missing page literal: {name}"
-ERROR_ENDPOINT_NOT_DISCOVERED: Final[str] = (
-    "Cannot discover tracking endpoint; supply --endpoint from DevTools"
-)
+ERROR_ENDPOINT_NOT_DISCOVERED: Final[str] = "Cannot discover tracking endpoint; supply --endpoint from DevTools"
 ERROR_ENDPOINT_NOT_ALLOWED: Final[str] = "Endpoint must be an HTTPS /ajax/ URL on track24.ru"
 ERROR_ENVELOPE_LENGTHS: Final[str] = "Unexpected CryptoJS salt/IV length"
 ERROR_ENVELOPE_MALFORMED: Final[str] = "Malformed CryptoJS envelope"

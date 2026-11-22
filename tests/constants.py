@@ -59,18 +59,18 @@ PAGE_WITH_LITERAL_TEMPLATE: Final[str] = (
 PAGE_WITHOUT_ENDPOINT_TEMPLATE: Final[str] = '<html><script>var cp="{password}";</script></html>'
 PAGE_WITHOUT_PASSWORD: Final[str] = '<html><script>var trackingUrl="/ajax/x.ajax.php";</script></html>'
 PACKED_SCRIPT: Final[str] = (
-    r'''eval(function(p,a,c,k,e,d){return p}('0 a=["\\x2f\\x61\\x6a\\x61\\x78\\x2f\\x74\\x2e'''
-    r'''\\x61\\x6a\\x61\\x78\\x2e\\x70\\x68\\x70"];0 b=a[1];',12,12,'var|||||||||||'''
-    r'''trackingUrl'.split('|')));'''
+    r"""eval(function(p,a,c,k,e,d){return p}('0 a=["\\x2f\\x61\\x6a\\x61\\x78\\x2f\\x74\\x2e"""
+    r"""\\x61\\x6a\\x61\\x78\\x2e\\x70\\x68\\x70"];0 b=a[1];',12,12,'var|||||||||||"""
+    r"""trackingUrl'.split('|')));"""
 )
 PACKED_SCRIPT_WITHOUT_ENDPOINT_WORD: Final[str] = (
-    r'''eval(function(p,a,c,k,e,d){return p}('0 a=["\\x2f\\x61\\x6a\\x61\\x78\\x2f\\x74\\x2e'''
-    r'''\\x61\\x6a\\x61\\x78\\x2e\\x70\\x68\\x70"];',12,12,'var|||||||||||'''
-    r'''otherName'.split('|')));'''
+    r"""eval(function(p,a,c,k,e,d){return p}('0 a=["\\x2f\\x61\\x6a\\x61\\x78\\x2f\\x74\\x2e"""
+    r"""\\x61\\x6a\\x61\\x78\\x2e\\x70\\x68\\x70"];',12,12,'var|||||||||||"""
+    r"""otherName'.split('|')));"""
 )
 PACKED_SCRIPT_WITH_INVALID_RADIX: Final[str] = (
-    r'''eval(function(p,a,c,k,e,d){return p}('0 a=["/ajax/t.ajax.php"];0 b=a[1];',99,12,'var'''
-    r'''|||||||||||trackingUrl'.split('|')));'''
+    r"""eval(function(p,a,c,k,e,d){return p}('0 a=["/ajax/t.ajax.php"];0 b=a[1];',99,12,'var"""
+    r"""|||||||||||trackingUrl'.split('|')));"""
 )
 PAGE_WITH_PACKED_TEMPLATE: Final[str] = '<html><script>var cp="{password}";{packed}</script></html>'
 

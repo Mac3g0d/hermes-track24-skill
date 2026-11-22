@@ -88,10 +88,20 @@ uv run pytest
 ```
 
 ```sh
-uv run tox -p auto
+uvx --with tox-uv tox -p auto
 ```
 
-`tox` runs the suite on Python 3.10, 3.11, 3.12, 3.13 and 3.14 through `tox-uv`; `uv run tox -e integration` runs only the integration tests.
+`tox` is run as a uv tool, not installed into the test environments. It runs these environments:
+
+| Environment | Checks |
+|---|---|
+| `lint` | `ruff check` and `ruff format --check` |
+| `type` | `mypy` (strict) and `ty check` |
+| `security` | `bandit` on the shipped skill code |
+| `3.10` … `3.14` | the pytest suite on each Python version |
+| `integration` | only the integration tests (not in the default list) |
+
+CI runs every tox environment, plus [gitleaks](https://github.com/gitleaks/gitleaks) over the full git history and [trivy](https://github.com/aquasecurity/trivy) over `uv.lock` (runtime and dev dependencies), secrets and configuration. Both scanners are installed from pinned releases after SHA-256 verification.
 
 Tests follow Arrange / Act / Assert. Test modules contain only imports and test functions; fixtures live in `tests/fixtures/` and are loaded as plugins from `conftest.py`. Network traffic is mocked with `pytest_httpx`, other collaborators with `pytest-mock`, and payloads are generated with `polyfactory`:
 
@@ -101,7 +111,7 @@ Tests follow Arrange / Act / Assert. Test modules contain only imports and test 
 
 ## Releases
 
-Pushing a `v*` tag that matches the `SKILL.md` version runs tox on every Python version, builds `track24-parcel-tracking-<tag>.zip` and `.tar.gz` from `skills/track24-parcel-tracking/` with SHA-256 sums, and publishes them as a GitHub release.
+Pushing a `v*` tag that matches the `SKILL.md` version runs the whole CI pipeline (tox, gitleaks, trivy) and only then builds `track24-parcel-tracking-<tag>.zip` and `.tar.gz` from `skills/track24-parcel-tracking/` with SHA-256 sums, and publishes them as a GitHub release.
 
 ## Verification scope
 

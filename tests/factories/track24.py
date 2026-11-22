@@ -13,6 +13,11 @@ from constants import (
 from factories.models import LastPoint, TrackData, TrackResult
 
 
+def no_events() -> list[LastPoint]:
+    """An empty event history; summaries must not fall back to it."""
+    return []
+
+
 class LastPointFactory(TypedDictFactory[LastPoint]):
     """Latest-event factory with realistic identifiers and timestamps."""
 
@@ -33,7 +38,7 @@ class TrackDataFactory(TypedDictFactory[TrackData]):
     deliveredStatus = "0"
     trackUpdateDateTime = Use(lambda: TrackDataFactory.__faker__.date_time().strftime(EVENT_DATETIME_FORMAT))
     destinationAddress = Use(lambda: TrackDataFactory.__faker__.address())
-    events = Use(list)
+    events = Use(no_events)
 
 
 class TrackResultFactory(TypedDictFactory[TrackResult]):
