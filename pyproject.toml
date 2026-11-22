@@ -1,0 +1,52 @@
+[project]
+name = "hermes-track24-skill"
+version = "2.0.0"
+description = "Hermes Agent skill that reads public Track24 parcel status"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27,<1",
+    "pycryptodome>=3.20,<4",
+]
+
+[dependency-groups]
+dev = [
+    "polyfactory>=3.5.0",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-httpx>=0.36.2",
+    "pytest-mock>=3.17.0",
+    "pyyaml>=6.0",
+    "tomli>=2.0",
+    "tox>=4.21",
+    "tox-uv>=1.11",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["skills/track24-parcel-tracking/scripts", "tests"]
+addopts = ["--strict-markers", "--import-mode=importlib", "-ra"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: exercises the full tracking flow through httpx with pytest_httpx",
+]
+
+[tool.tox]
+requires = ["tox>=4.21", "tox-uv>=1.11"]
+env_list = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[tool.tox.env_run_base]
+description = "Run the test suite on {base_python}"
+runner = "uv-venv-lock-runner"
+dependency_groups = ["dev"]
+commands = [["pytest", { replace = "posargs", extend = true }]]
+
+[tool.tox.env.integration]
+description = "Run only the integration tests"
+commands = [["pytest", "-m", "integration", { replace = "posargs", extend = true }]]
