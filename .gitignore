@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*response*.json
+*tracking-state*.json
