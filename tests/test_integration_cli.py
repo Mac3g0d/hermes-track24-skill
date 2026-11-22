@@ -40,9 +40,7 @@ async def test_cli_prints_summary_json(
     assert ok_result["data"]["destinationAddress"] not in captured.out
 
 
-async def test_cli_passes_arguments_to_tracker(
-    site: FakeTrack24, mocker: MockerFixture, track_code: str
-) -> None:
+async def test_cli_passes_arguments_to_tracker(site: FakeTrack24, mocker: MockerFixture, track_code: str) -> None:
     """Parsed arguments reach ``track_many`` unchanged."""
     tracker = mocker.patch.object(track24, "track_many", return_value=[])
     endpoint = "https://track24.ru/ajax/x.ajax.php"
@@ -194,7 +192,12 @@ def test_script_runs_standalone_from_installed_layout() -> None:
     command = [sys.executable, str(TRACKER_SCRIPT), "--help"]
 
     completed = subprocess.run(
-        command, cwd=SCRIPTS_DIRECTORY.parent, capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SECONDS
+        command,
+        check=False,
+        cwd=SCRIPTS_DIRECTORY.parent,
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
     )
 
     assert completed.returncode == 0
@@ -205,7 +208,7 @@ def test_script_rejects_invalid_code_as_subprocess() -> None:
     """A malformed identifier fails through the real entry point without network access."""
     command = [sys.executable, str(TRACKER_SCRIPT), "bad code"]
 
-    completed = subprocess.run(command, capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SECONDS)
+    completed = subprocess.run(command, check=False, capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT_SECONDS)
 
     assert completed.returncode == 1
     assert json.loads(completed.stderr) == {"track": "bad code", "ok": False, "error": "InvalidTrackCodeError"}

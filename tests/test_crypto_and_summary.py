@@ -87,7 +87,8 @@ def test_validate_track_code_accepts_and_preserves(code: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "code", ["", "abcd", " TEST00001", "TEST00001 ", "-TEST0001", "TEST&0001", "A" * 33, "ТЕСТ00001"]
+    "code",
+    ["", "abcd", " TEST00001", "TEST00001 ", "-TEST0001", "TEST&0001", "A" * 33, "\u0422\u0415\u0421\u042200001"],
 )
 def test_validate_track_code_rejects_without_normalizing(code: str) -> None:
     """Whitespace, punctuation, non-ASCII and length violations are refused, not repaired."""

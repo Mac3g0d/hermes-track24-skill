@@ -2,7 +2,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "httpx>=0.27,<1",
-#     "pycryptodome>=3.20,<4",
+#     "pycryptodomex>=3.20,<4",
 # ]
 # ///
 """Read public Track24 tracking data without replaying another session's credentials."""
@@ -16,21 +16,22 @@ import json
 import re
 import sys
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
+from Cryptodome.Cipher import AES
+from Cryptodome.Util.Padding import unpad
 
 from track24_constants import (
+    ACCEPT_HEADER_VALUE,
     AES_BLOCK_BYTES,
     AES_IV_BYTES,
     AES_KEY_BYTES,
-    ACCEPT_HEADER_VALUE,
     AJAX_PATH_PREFIX,
     AJAX_PATH_SUFFIX,
+    CIPHER_KEY_LITERAL_NAME,
     CLI_CODES_HELP,
     CLI_ENDPOINT_HELP,
     CLI_ERROR_HTTP,
@@ -82,7 +83,6 @@ from track24_constants import (
     PACKER_PATTERN,
     PACKER_SINGLE_BACKSLASH,
     PACKER_WORD_SEPARATOR,
-    PASSWORD_LITERAL_NAME,
     RESPONSE_STATUS_OK,
     TEXT_ENCODING,
     TRACK24_HOST,
@@ -178,6 +178,15 @@ def to_radix(number: int, radix: int) -> str:
     return digits
 
 
+def literal_replacement(word: str) -> Callable[[re.Match[str]], str]:
+    """Return a ``re.sub`` callback that inserts ``word`` verbatim, without escape processing."""
+
+    def replace(_match: re.Match[str]) -> str:
+        return word
+
+    return replace
+
+
 def unpack_dictionary(packed: str, radix: int, count: int, words: Sequence[str]) -> str:
     """Substitute packer word indexes with dictionary words, treating the payload as data."""
     unpacked = packed
@@ -185,7 +194,7 @@ def unpack_dictionary(packed: str, radix: int, count: int, words: Sequence[str])
         word = words[index]
         if word:
             token = re.compile(r"\b" + to_radix(index, radix) + r"\b")
-            unpacked = token.sub(lambda _match, replacement=word: replacement, unpacked)
+            unpacked = token.sub(literal_replacement(word), unpacked)
     return unpacked
 
 
@@ -241,7 +250,7 @@ def derive_key_material(password: str, salt: bytes) -> bytes:
     material, previous = b"", b""
     secret = password.encode(TEXT_ENCODING)
     while len(material) < KEY_MATERIAL_BYTES:
-        previous = hashlib.md5(previous + secret + salt).digest()
+        previous = hashlib.md5(previous + secret + salt, usedforsecurity=False).digest()
         material += previous
     return material
 
@@ -338,7 +347,7 @@ async def track(
     validate_track_code(code)
     query = urllib.parse.urlencode({TRACK24_PAGE_CODE_PARAMETER: code})
     page = (await fetch(client, f"{TRACK24_ORIGIN}/?{query}")).decode(TEXT_ENCODING)
-    password = literal(page, PASSWORD_LITERAL_NAME)
+    password = literal(page, CIPHER_KEY_LITERAL_NAME)
     target = validate_endpoint(endpoint) if endpoint else discover_endpoint(page)
     envelope = json.loads(await fetch(client, target, build_form(code)))
     if not isinstance(envelope, dict):
@@ -413,9 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("codes", nargs="+", metavar="code", help=CLI_CODES_HELP)
     parser.add_argument("--endpoint", help=CLI_ENDPOINT_HELP)
-    parser.add_argument(
-        "--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS, help=CLI_TIMEOUT_HELP
-    )
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS, help=CLI_TIMEOUT_HELP)
     return parser
 
 

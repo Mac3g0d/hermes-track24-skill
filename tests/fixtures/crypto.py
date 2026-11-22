@@ -7,8 +7,8 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
+from Cryptodome.Cipher import AES
+from Cryptodome.Util.Padding import pad
 
 from constants import AES_BLOCK_BYTES, AES_KEY_BYTES, IV, KEY_MATERIAL_BYTES, PASSWORD, SALT
 
@@ -20,7 +20,7 @@ def openssl_key(password: str, salt: bytes) -> bytes:
     """Independent EVP_BytesToKey implementation so tests do not trust the code under test."""
     material, previous = b"", b""
     while len(material) < KEY_MATERIAL_BYTES:
-        previous = hashlib.md5(previous + password.encode() + salt).digest()
+        previous = hashlib.md5(previous + password.encode() + salt, usedforsecurity=False).digest()
         material += previous
     return material[:AES_KEY_BYTES]
 

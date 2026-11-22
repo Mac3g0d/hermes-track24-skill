@@ -59,7 +59,9 @@ def frontmatter(skill_text: str) -> dict[str, Any]:
 @pytest.fixture(scope="session")
 def project_version() -> str:
     """The ``version`` declared in ``pyproject.toml``."""
-    match = re.search(PYPROJECT_VERSION_PATTERN, (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.MULTILINE)
+    match = re.search(
+        PYPROJECT_VERSION_PATTERN, (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.MULTILINE
+    )
     assert match is not None
     return match[1]
 
@@ -87,7 +89,7 @@ def script_metadata() -> dict[str, Any]:
     blocks = [match for match in PEP723_BLOCK_PATTERN.finditer(source) if match["type"] == PEP723_BLOCK_TYPE]
     assert len(blocks) == 1
     content = "".join(
-        line[len(PEP723_LINE_PREFIX):] if line.startswith(PEP723_LINE_PREFIX) else line[1:]
+        line[len(PEP723_LINE_PREFIX) :] if line.startswith(PEP723_LINE_PREFIX) else line[1:]
         for line in blocks[0]["content"].splitlines(keepends=True)
     )
     return tomli.loads(content)

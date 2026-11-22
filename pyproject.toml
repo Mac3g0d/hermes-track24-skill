@@ -7,20 +7,23 @@ license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27,<1",
-    "pycryptodome>=3.20,<4",
+    "pycryptodomex>=3.20,<4",
 ]
 
 [dependency-groups]
 dev = [
+    "bandit[toml]>=1.9.4",
+    "mypy>=2.4.1",
     "polyfactory>=3.5.0",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-httpx>=0.36.2",
     "pytest-mock>=3.17.0",
     "pyyaml>=6.0",
+    "ruff>=0.17.6",
     "tomli>=2.0",
-    "tox>=4.21",
-    "tox-uv>=1.11",
+    "ty>=0.0.107",
+    "types-pyyaml>=6.0.12.20261122",
 ]
 
 [tool.uv]
@@ -39,7 +42,7 @@ markers = [
 
 [tool.tox]
 requires = ["tox>=4.21", "tox-uv>=1.11"]
-env_list = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+env_list = ["lint", "type", "security", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [tool.tox.env_run_base]
 description = "Run the test suite on {base_python}"
@@ -47,6 +50,51 @@ runner = "uv-venv-lock-runner"
 dependency_groups = ["dev"]
 commands = [["pytest", { replace = "posargs", extend = true }]]
 
+[tool.tox.env.lint]
+description = "Lint and check formatting with ruff"
+commands = [["ruff", "check"], ["ruff", "format", "--check"]]
+
+[tool.tox.env.type]
+description = "Type-check with mypy (strict) and ty"
+commands = [["mypy"], ["ty", "check"]]
+
+[tool.tox.env.security]
+description = "Scan the shipped skill code with bandit"
+commands = [["bandit", "-c", "pyproject.toml", "-r", "skills/track24-parcel-tracking/scripts"]]
+
 [tool.tox.env.integration]
 description = "Run only the integration tests"
 commands = [["pytest", "-m", "integration", { replace = "posargs", extend = true }]]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["skills/track24-parcel-tracking/scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "UP", "SIM", "C4", "RUF", "PT", "ASYNC", "ERA", "S", "PL", "PTH", "RET", "TID"]
+ignore = ["PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S603", "PLR0913", "PLR0917"]
+"tests/factories/**" = ["N815", "PLW0108"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["track24", "track24_constants", "constants", "factories", "fixtures"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+mypy_path = ["skills/track24-parcel-tracking/scripts", "tests"]
+files = ["skills/track24-parcel-tracking/scripts", "tests"]
+explicit_package_bases = true
+
+[tool.ty.environment]
+python-version = "3.10"
+extra-paths = ["skills/track24-parcel-tracking/scripts", "tests"]
+
+[tool.ty.src]
+include = ["skills/track24-parcel-tracking/scripts", "tests"]
+
+[tool.bandit]
+targets = ["skills/track24-parcel-tracking/scripts"]

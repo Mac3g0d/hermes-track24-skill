@@ -302,9 +302,7 @@ async def test_track_many_reports_http_status(site: FakeTrack24, client: httpx.A
     assert (outcomes[0].error, outcomes[0].http_status) == ("http_error", HTTP_TOO_MANY_REQUESTS)
 
 
-async def test_track_many_closes_only_its_own_client(
-    site: FakeTrack24, mocker: MockerFixture, track_code: str
-) -> None:
+async def test_track_many_closes_only_its_own_client(site: FakeTrack24, mocker: MockerFixture, track_code: str) -> None:
     """Without an injected client, ``track_many`` builds one via ``create_client`` and closes it."""
     site.page()
     site.echo()
