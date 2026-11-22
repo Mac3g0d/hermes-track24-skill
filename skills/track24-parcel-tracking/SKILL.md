@@ -1,12 +1,13 @@
 ---
 name: track24-parcel-tracking
-description: "Use when tracking parcels via Track24. Verify live events."
-version: 1.0.0
+description: "Read-only Track24 parcel status: fetch, decrypt and verify the latest event for an exact tracking code."
+version: 1.1.0
 author: Mac3g0d
 license: MIT
+platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [tracking, parcels, track24]
+    tags: [tracking, parcels, track24, logistics]
     related_skills: [shopping-research, blocked-page-recovery]
 ---
 
@@ -20,12 +21,13 @@ Use for operator-owned parcel status checks on Track24 and diagnosis of its publ
 
 ## Execution
 
-Use `scripts/track24.py` with the exact tracking identifier. Requires Python 3.10+ and `pycryptodome`; choose an existing compatible interpreter before installing dependencies. Example identifiers in docs are placeholders, not live parcels.
+Run `scripts/track24.py` from this skill's directory with the exact tracking identifier. It needs Python 3.10+ and `pycryptodome`; use `uv` so nothing is installed into a system interpreter. `scripts/track24_constants.py` must stay next to the script. Example identifiers in docs are placeholders, not live parcels.
 
 ```sh
-python scripts/track24.py "$TRACK_CODE"
-python -m unittest discover -s tests -v
+uv run --no-project --with "pycryptodome>=3.20,<4" python scripts/track24.py "$TRACK_CODE"
 ```
+
+Exit code 0 prints one JSON summary line to stdout. Exit code 1 prints `{"ok": false, "error": "<ErrorType>"}` (or `http_error` with `http_status`) to stderr. Error types: `InvalidTrackCodeError`, `MissingLiteralError`, `EndpointError`, `DecryptionError`, `ResponseTooLargeError`, `ChallengeError`, `ServiceStatusError`, `IdentifierMismatchError`.
 
 The script retrieves the public page, reads its `cp` literal, discovers the tracking endpoint from a literal or the observed dictionary-packed assignment WITHOUT executing JavaScript, POSTs form data, and decodes the CryptoJS AES passphrase envelope. AES-CBC uses OpenSSL-style MD5 derivation with the supplied salt. None of the encryption parameters are printed. Never hardcode a user's cookies, browser key, UUID, fingerprint, IP, address or track number into the skill or repository.
 
